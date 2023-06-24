@@ -1,0 +1,12 @@
+[workspace]
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.70"
+
+license = "Apache-2.0"
+authors = ["Brad Larsen <brad@bradfordlarsen.com>"]
+homepage = "https://github.com/bradlarsen/zauber"
+repository = "https://github.com/bradlarsen/zauber"
+version = "0.0.0"
