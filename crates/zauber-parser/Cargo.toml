@@ -1,6 +1,15 @@
 [package]
 name = "zauber-parser"
-version = "0.1.0"
-edition = "2021"
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+version.workspace = true
 
 [dependencies]
+bitflags = "2"
+mime = "0.3"
+nom = "7"
+nom_locate = "4"
+thiserror = { version = "1" }

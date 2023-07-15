@@ -1,14 +1,7 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub mod ast;
+pub mod err;
+pub mod parser;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use ast::MagicPattern;
+pub use err::Error;
+pub use parser::parse_magic_file;
