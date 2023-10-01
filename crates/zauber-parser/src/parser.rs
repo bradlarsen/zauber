@@ -11,20 +11,18 @@ use nom::{
         alpha1, char, digit1, hex_digit1, line_ending, multispace0, multispace1, not_line_ending,
         oct_digit1, one_of, space0, space1,
     },
-    combinator::{all_consuming, cut, fail, map, map_res, not, opt, value},
+    combinator::{all_consuming, cut, fail, map, map_res, not, opt, rest, value},
     error::context,
-    multi::{many0, many0_count, many1},
+    multi::{many0, many0_count, many1, many1_count},
     sequence::{delimited, preceded, terminated, tuple},
-    Finish, IResult, Parser,
+    Finish, Parser,
 };
-use nom_locate::LocatedSpan;
 use std::path::Path;
 use std::str::FromStr;
 
 use crate::{ast, err};
 
-type Span<'a> = LocatedSpan<&'a str>;
-type PResult<'a, T> = IResult<Span<'a>, T>;
+pub type IResult<'a, O> = nom::IResult<&'a str, O, nom::error::Error<&'a str>>;
 
 pub fn parse_magic_file<P>(fname: P) -> Result<Vec<ast::MagicPattern>, err::Error>
 where
@@ -33,104 +31,104 @@ where
     parse_magic_file_path(fname.as_ref())
 }
 
-fn parse_magic_file_path(fname: &Path) -> Result<Vec<ast::MagicPattern>, err::Error> {
-    let contents = std::fs::read_to_string(fname)?;
-    let span = Span::new(&contents);
-    match magic_file.parse(span).finish() {
-        Ok((input, pats)) => match *input.fragment() {
-            "" => Ok(pats),
-            _ => Err(err::Error::TrailingInput {
-                location: err::Location {
-                    fname: fname.to_owned(),
-                    line_num: input.location_line() as usize,
-                    column_num: input.get_utf8_column(),
-                },
-            }),
-        },
-        Err(err) => {
-            panic!(
-                "*** error at {:?}:{}:{}\n{}",
-                fname,
-                err.input.location_line(),
-                err.input.get_utf8_column(),
-                err
-            );
+fn run_nom_parser<'a, P, O>(
+    mut p: P,
+    fname: &Path,
+    line_num: usize,
+    line: &'a str,
+) -> Result<O, err::Error>
+where
+    P: nom::Parser<&'a str, O, nom::error::Error<&'a str>>,
+{
+    let make_location = || err::Location {
+        fname: fname.to_owned(),
+        line_num,
+    };
+
+    match p.parse(line) {
+        Ok(("", o)) => Ok(o),
+        Ok((_i, _o)) => Err(err::Error::TrailingInput {
+            location: make_location(),
+        }),
+        Err(e) => {
+            let location = make_location();
+            let line = line.to_owned();
+            let message = format!("{e}");
+            return Err(err::Error::ParseError {
+                location,
+                message,
+                line,
+            });
         }
     }
 }
 
-fn magic_file(i: Span) -> PResult<Vec<ast::MagicPattern>> {
-    let (i, ps) = many0(context("magic pattern", magic_pattern))(i)?;
-    let (i, _) = comments_or_whitespace(i)?;
-    Ok((i, ps))
+fn parse_magic_file_path(fname: &Path) -> Result<Vec<ast::MagicPattern>, err::Error> {
+    let contents = std::fs::read_to_string(fname)?;
+
+    let mut patterns: Vec<ast::MagicPattern> = Vec::with_capacity(128);
+
+    for (line_num, line) in (1usize..).zip(contents.lines()) {
+        let line = line.trim();
+
+        if line.is_empty() {
+            // skip blank lines
+        } else if line.starts_with('#') {
+            // skip comment lines
+        } else if line.starts_with("!:") {
+            // directive
+            patterns.push(run_nom_parser(directive, fname, line_num, line)?);
+        } else {
+            // magic pattern
+            patterns.push(run_nom_parser(pattern, fname, line_num, line)?);
+        }
+    }
+
+    Ok(patterns)
 }
 
-fn comments_or_whitespace(i: Span) -> PResult<()> {
-    let (i, _c) = many0_count(alt((terminated(whitespace0, line_ending), comment)))(i)?;
+fn tabs1(i: &str) -> IResult<()> {
+    let (i, _) = many1_count(char('\t'))(i)?;
     Ok((i, ()))
 }
 
-fn whitespace0(i: Span) -> PResult<()> {
-    let (i, _) = space0(i)?;
-    Ok((i, ()))
-}
-
-fn whitespace1(i: Span) -> PResult<()> {
-    let (i, _) = space1(i)?;
-    Ok((i, ()))
-}
-
-fn comment(i: Span) -> PResult<()> {
-    let (i, _) = char('#')(i)?;
-    let (i, _) = cut(take_through_eol)(i)?;
-    Ok((i, ()))
-}
-
-fn magic_pattern(i: Span) -> PResult<ast::MagicPattern> {
-    let (i, ()) = comments_or_whitespace(i)?;
-    alt((
-        context("pattern", pattern).map(ast::MagicPattern::Pattern),
-        context("directive", directive).map(ast::MagicPattern::Directive),
-    ))(i)
-}
-
-fn pattern(i: Span) -> PResult<ast::Pattern> {
+fn pattern(i: &str) -> IResult<ast::MagicPattern> {
     let (i, level) = context("level", level)(i)?;
     let (i, offset) = context("offset", offset)(i)?;
-    let (i, _) = cut(whitespace1)(i)?;
+    let (i, _) = cut(tabs1)(i)?;
     let (i, test) = context("test", cut(test))(i)?;
-    let (i, _) = cut(whitespace1)(i)?;
+    let (i, _) = cut(tabs1)(i)?;
     let (i, message) = context("message", cut(message))(i)?;
 
-    let pat = ast::Pattern {
+    let pat = ast::MagicPattern::Pattern(ast::Pattern {
         level,
         offset,
         test,
         message,
-    };
+    });
     Ok((i, pat))
 }
 
-fn level(i: Span) -> PResult<u64> {
+fn level(i: &str) -> IResult<u64> {
     let (i, c) = many0_count(char('>'))(i)?;
     Ok((i, c as u64))
 }
 
-fn offset(i: Span) -> PResult<ast::Offset> {
+fn offset(i: &str) -> IResult<ast::Offset> {
     alt((direct, relative, indirect))(i)
 }
 
-fn direct(i: Span) -> PResult<ast::Offset> {
+fn direct(i: &str) -> IResult<ast::Offset> {
     map(integral::<i64>(), ast::Offset::Direct)(i)
 }
 
-fn relative(i: Span) -> PResult<ast::Offset> {
+fn relative(i: &str) -> IResult<ast::Offset> {
     let (i, o) = preceded(char('&'), cut(offset))(i)?;
     let o = ast::Offset::Relative(Box::new(o));
     Ok((i, o))
 }
 
-fn indirect(i: Span) -> PResult<ast::Offset> {
+fn indirect(i: &str) -> IResult<ast::Offset> {
     let (_i, _) = char('(')(i)?;
     panic!("FIXME: unimplemented");
     // let (i, _) = char(')')(i)?;
@@ -144,7 +142,7 @@ fn indirect(i: Span) -> PResult<ast::Offset> {
     // Ok((i, o))
 }
 
-fn test(i: Span) -> PResult<ast::Test> {
+fn test(i: &str) -> IResult<ast::Test> {
     alt((
         integral_test::<u8>("byte").map(ast::Test::Byte),
         integral_test::<u16>("short").map(ast::Test::Short),
@@ -156,12 +154,12 @@ fn test(i: Span) -> PResult<ast::Test> {
     ))(i)
 }
 
-fn integral_test<'a, I: Integral>(name: &'a str) -> impl FnMut(Span) -> PResult<ast::Expr<I>> + 'a {
-    move |i: Span| {
+fn integral_test<'a, I: Integral>(name: &'a str) -> impl FnMut(&'a str) -> IResult<ast::Expr<I>> {
+    move |i: &'a str| {
         use ast::Expr;
 
         let (i, _) = tag(name)(i)?;
-        let (i, _) = cut(whitespace1)(i)?;
+        let (i, _) = cut(tabs1)(i)?;
         let (i, op) = opt(one_of("=<>&^~!"))(i)?;
         let (i, n) = integral::<I>()(i)?;
         let expr = match op {
@@ -178,27 +176,26 @@ fn integral_test<'a, I: Integral>(name: &'a str) -> impl FnMut(Span) -> PResult<
     }
 }
 
-fn name_test(i: Span) -> PResult<ast::Test> {
+fn name_test(i: &str) -> IResult<ast::Test> {
     let (i, _) = tag("name")(i)?;
-    let (i, _) = cut(whitespace1)(i)?;
+    let (i, _) = cut(tabs1)(i)?;
     let (i, s) = not_line_ending(i)?;
     Ok((i, ast::Test::Name(s.to_string())))
 }
 
-fn use_test(i: Span) -> PResult<ast::Test> {
+fn use_test(i: &str) -> IResult<ast::Test> {
     let (i, _) = tag("use")(i)?;
-    let (i, _) = cut(whitespace1)(i)?;
+    let (i, _) = cut(tabs1)(i)?;
     let (i, s) = not_line_ending(i)?;
     Ok((i, ast::Test::Use(s.to_string())))
 }
 
-fn search_test(i: Span) -> PResult<ast::Test> {
+fn search_test(i: &str) -> IResult<ast::Test> {
     let (i, _) = tag("search")(i)?;
     let (i, range) = cut(opt(preceded(char('/'), integral::<usize>())))(i)?;
     let (i, flags) = opt(preceded(char('/'), search_flags))(i)?;
-    let (i, _) = cut(whitespace1)(i)?;
+    let (i, _) = cut(tabs1)(i)?;
     let (i, s) = string(i)?;
-    println!("*** s = {s:?}");
     Ok((
         i,
         ast::Test::Search {
@@ -209,7 +206,7 @@ fn search_test(i: Span) -> PResult<ast::Test> {
     ))
 }
 
-fn search_flags(i: Span) -> PResult<ast::SearchFlags> {
+fn search_flags(i: &str) -> IResult<ast::SearchFlags> {
     let (i, flags) = many0(alt((
         char('b').map(|_| ast::SearchFlags::ForceBinary),
         char('C').map(|_| ast::SearchFlags::UpperCaseInsensitive),
@@ -224,11 +221,11 @@ fn search_flags(i: Span) -> PResult<ast::SearchFlags> {
     Ok((i, flags))
 }
 
-fn string_test(i: Span) -> PResult<ast::Test> {
+fn string_test(i: &str) -> IResult<ast::Test> {
     let (i, _) = tag("string")(i)?;
     let (i, width) = cut(opt(preceded(char('/'), integral::<usize>())))(i)?;
     let (i, flags) = opt(preceded(char('/'), search_flags))(i)?;
-    let (i, _) = whitespace1(i)?;
+    let (i, _) = tabs1(i)?;
     let (i, s) = string(i)?;
     Ok((
         i,
@@ -241,46 +238,49 @@ fn string_test(i: Span) -> PResult<ast::Test> {
 }
 
 // FIXME: support C style escapes: https://en.wikipedia.org/wiki/Escape_sequences_in_C
-fn string(i: Span) -> PResult<String> {
-    // let (i, s) = escaped(one_of("#!abcdefghijklmnopqrstuvwxyz/1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"), '\\', one_of(" \t\\0x"))(i)?;
-    let (i, s) = escaped_transform(is_not("\\ \t"), '\\', alt((
-        value(" ", tag(" ")),
-        value("\\", tag("\\")),
-        value("\t", tag("t")),
-        value("\n", tag("n")),
-        value("\r", tag("r")),
-        map(digit1, |ds: Span| *ds.fragment()),  // FIXME: convert from octal
-    )))(i)?;
-    // one_of(" \t\n\rtnr\\0x"))(i)?;
+fn string(i: &str) -> IResult<String> {
+    let (i, s) = escaped_transform(
+        is_not("\\ \t"),
+        '\\',
+        alt((
+            value(" ", tag(" ")),
+            value("\\", tag("\\")),
+            value("\t", tag("t")),
+            value("\n", tag("n")),
+            value("\r", tag("r")),
+            map(digit1, |ds: &str| ds), // FIXME: convert from octal
+        )),
+    )(i)?;
     Ok((i, s.to_string()))
 }
 
-fn message(i: Span) -> PResult<String> {
-    map(take_through_eol, |r| r.fragment().to_string())(i)
+fn message(i: &str) -> IResult<String> {
+    map(rest, |r: &str| r.to_string())(i)
 }
 
-fn directive(i: Span) -> PResult<ast::Directive> {
-    alt((mime, strength, ext, apple))(i)
+fn directive(i: &str) -> IResult<ast::MagicPattern> {
+    map(
+        alt((mime, strength, ext, apple)),
+        ast::MagicPattern::Directive,
+    )(i)
 }
 
-fn mime(i: Span) -> PResult<ast::Directive> {
+fn mime(i: &str) -> IResult<ast::Directive> {
     let (i, _) = directive_keyword("!:mime")(i)?;
-    let (i, m) = map_res(cut(take_through_eol), |m: Span| {
-        Mime::from_str(m.fragment())
-    })(i)?;
+    let (i, m) = map_res(cut(rest), |m: &str| Mime::from_str(m))(i)?;
     Ok((i, ast::Directive::Mime(m)))
 }
 
-fn strength(i: Span) -> PResult<ast::Directive> {
+fn strength(i: &str) -> IResult<ast::Directive> {
     let (i, _) = directive_keyword("!:strength")(i)?;
-    let (i, _) = cut(whitespace1)(i)?;
+    let (i, _) = cut(tabs1)(i)?;
     let (i, operator) = strength_op(i)?;
-    let (i, _) = whitespace0(i)?;
+    let (i, _) = space0(i)?;
     let (i, value) = integral::<u8>()(i)?;
     Ok((i, ast::Directive::Strength { operator, value }))
 }
 
-fn strength_op(i: Span) -> PResult<ast::StrengthOp> {
+fn strength_op(i: &str) -> IResult<ast::StrengthOp> {
     alt((
         char('+').map(|_| ast::StrengthOp::Add),
         char('-').map(|_| ast::StrengthOp::Sub),
@@ -289,30 +289,24 @@ fn strength_op(i: Span) -> PResult<ast::StrengthOp> {
     ))(i)
 }
 
-fn ext(i: Span) -> PResult<ast::Directive> {
+fn ext(i: &str) -> IResult<ast::Directive> {
     let (i, _) = directive_keyword("!:ext")(i)?;
-    let (i, e) = cut(take_through_eol)(i)?;
-    Ok((i, ast::Directive::Ext(e.fragment().to_string())))
+    let (i, e) = cut(rest)(i)?;
+    Ok((i, ast::Directive::Ext(e.to_string())))
 }
 
-fn apple(i: Span) -> PResult<ast::Directive> {
+fn apple(i: &str) -> IResult<ast::Directive> {
     let (i, _) = directive_keyword("!:apple")(i)?;
-    let (i, e) = cut(take_through_eol)(i)?;
-    Ok((i, ast::Directive::Apple(e.fragment().to_string())))
+    let (i, e) = cut(rest)(i)?;
+    Ok((i, ast::Directive::Apple(e.to_string())))
 }
 
-fn directive_keyword<'a>(keyword: &'a str) -> impl FnMut(Span) -> PResult<()> + 'a {
-    move |i: Span| {
+fn directive_keyword<'a>(keyword: &'a str) -> impl FnMut(&'a str) -> IResult<()> {
+    move |i: &str| {
         let (i, _) = tag(keyword)(i)?;
-        let (i, _) = cut(whitespace1)(i)?;
+        let (i, _) = cut(tabs1)(i)?;
         Ok((i, ()))
     }
-}
-
-/// Consume characters until a `\n` or `\r\n` sequence is seen.
-/// The end of line delimiter is consumed but not included in the result.
-fn take_through_eol(i: Span) -> PResult<Span> {
-    terminated(not_line_ending, line_ending)(i)
 }
 
 trait Integral
@@ -358,18 +352,17 @@ make_integral_impl!(i64);
 
 make_integral_impl!(usize);
 
-fn integral<I: Integral>() -> impl FnMut(Span) -> PResult<I> {
+fn integral<'a, I: Integral>() -> impl FnMut(&'a str) -> IResult<'a, I> {
     move |i| {
         alt((
-            map_res(preceded(tag("0x"), cut(hex_digit1)), |ds: Span| {
-                I::from_hexadecimal(ds.fragment())
+            map_res(preceded(tag("0x"), cut(hex_digit1)), |ds: &str| {
+                I::from_hexadecimal(ds)
             }),
-            map_res(digit1, |ds: Span| {
-                let s = ds.fragment();
-                if s.len() > 1 && s.starts_with("0") {
-                    I::from_octal(s)
+            map_res(digit1, |ds: &str| {
+                if ds.len() > 1 && ds.starts_with("0") {
+                    I::from_octal(ds)
                 } else {
-                    I::from_decimal(s)
+                    I::from_decimal(ds)
                 }
             }),
         ))(i)
