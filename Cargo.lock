@@ -165,6 +165,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fed44880c466736ef9a5c5b5facefb5ed0785676d0c02d612db14e54f0d84286"
 
 [[package]]
+name = "indoc"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e186cfbae8084e513daff4240b4797e342f988cecda4fb6c939150f96315fd8"
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -396,12 +402,18 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "zauber-compiler",
  "zauber-parser",
 ]
 
 [[package]]
 name = "zauber-compiler"
 version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "zauber-core",
+ "zauber-parser",
+]
 
 [[package]]
 name = "zauber-core"
@@ -413,9 +425,11 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.3.3",
  "escape_string",
+ "indoc",
  "mime",
  "nom",
  "thiserror",
+ "zauber-core",
 ]
 
 [[package]]

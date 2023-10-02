@@ -8,3 +8,6 @@ publish.workspace = true
 version.workspace = true
 
 [dependencies]
+thiserror = { version = "1" }
+zauber-core = { path = "../zauber-core" }
+zauber-parser = { path = "../zauber-parser" }

@@ -1,14 +1,11 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+use zauber_parser::MagicPattern;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+type Result<T> = std::result::Result<T, Error>;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub fn compile(_patterns: &[MagicPattern]) -> Result<()> {
+    Ok(())
 }

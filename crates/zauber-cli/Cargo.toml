@@ -10,4 +10,5 @@ version.workspace = true
 [dependencies]
 anyhow = { version = "1" }
 clap = { version = "4", features = ["derive", "wrap_help", "cargo" ] }
+zauber-compiler = { path = "../zauber-compiler" }
 zauber-parser = { path = "../zauber-parser" }

@@ -13,3 +13,7 @@ escape_string = "0.1"
 mime = "0.3"
 nom = "7"
 thiserror = { version = "1" }
+zauber-core = { path = "../zauber-core" }
+
+[dev-dependencies]
+indoc = "2"

@@ -3,6 +3,8 @@
 // FIXME: make error messages include context: https://github.com/fflorent/nom_locate/issues/35#issuecomment-912223059
 //
 
+#![allow(unused_imports)]  // for development
+
 use mime::Mime;
 use nom::{
     branch::alt,
@@ -31,9 +33,14 @@ where
     parse_magic_file_path(fname.as_ref())
 }
 
+fn parse_magic_file_path(fname: &Path) -> Result<Vec<ast::MagicPattern>, err::Error> {
+    let contents = std::fs::read_to_string(fname)?;
+    parse_magic_file_contents(&contents, Some(fname))
+}
+
 fn run_nom_parser<'a, P, O>(
     mut p: P,
-    fname: &Path,
+    fname: Option<&Path>,
     line_num: usize,
     line: &'a str,
 ) -> Result<O, err::Error>
@@ -41,7 +48,7 @@ where
     P: nom::Parser<&'a str, O, nom::error::Error<&'a str>>,
 {
     let make_location = || err::Location {
-        fname: fname.to_owned(),
+        fname: fname.map(|p| p.to_owned()),
         line_num,
     };
 
@@ -63,8 +70,7 @@ where
     }
 }
 
-fn parse_magic_file_path(fname: &Path) -> Result<Vec<ast::MagicPattern>, err::Error> {
-    let contents = std::fs::read_to_string(fname)?;
+pub fn parse_magic_file_contents(contents: &str, fname: Option<&Path>) -> Result<Vec<ast::MagicPattern>, err::Error> {
 
     let mut patterns: Vec<ast::MagicPattern> = Vec::with_capacity(128);
 
