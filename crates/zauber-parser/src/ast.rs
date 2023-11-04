@@ -58,20 +58,21 @@ pub enum StrengthOp {
      default type if one is not specified is long.
 */
 
-/// The type to be read by an indirect offset:
-///
-///     Type    Sy Mnemonic   Sy Endian Sy Size
-///     bcBc    Byte/Char     N/A       1
-///     efg     Double        Little    8
-///     EFG     Double        Big       8
-///     hs      Half/Short    Little    2
-///     HS      Half/Short    Big       2
-///     i       ID3           Little    4
-///     I       ID3           Big       4
-///     m       Middle        Middle    4
-///     o       Octal         Textual   Variable
-///     q       Quad          Little    8
-///     Q       Quad          Big       8
+/// The type to be read by an indirect offset
+
+//
+//     Type    Sy Mnemonic   Sy Endian Sy Size
+//     bcBc    Byte/Char     N/A       1
+//     efg     Double        Little    8
+//     EFG     Double        Big       8
+//     hs      Half/Short    Little    2
+//     HS      Half/Short    Big       2
+//     i       ID3           Little    4
+//     I       ID3           Big       4
+//     m       Middle        Middle    4
+//     o       Octal         Textual   Variable
+//     q       Quad          Little    8
+//     Q       Quad          Big       8
 #[derive(Debug, Copy, Clone)]
 pub enum OffsetType {
     /// `bcB`
