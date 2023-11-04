@@ -1,5 +1,5 @@
 [package]
-name = "zauber-core"
+name = "zauber-util"
 
 authors.workspace = true
 edition.workspace = true

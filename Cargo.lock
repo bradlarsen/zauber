@@ -426,10 +426,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "zauber-core"
-version = "0.1.0"
-
-[[package]]
 name = "zauber-ir"
 version = "0.1.0"
 
@@ -446,4 +442,8 @@ dependencies = [
 
 [[package]]
 name = "zauber-runtime"
+version = "0.1.0"
+
+[[package]]
+name = "zauber-util"
 version = "0.1.0"
