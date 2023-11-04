@@ -397,6 +397,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 
 [[package]]
+name = "zauber-ast"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.3.3",
+ "indoc",
+ "mime",
+]
+
+[[package]]
 name = "zauber-cli"
 version = "0.1.0"
 dependencies = [
@@ -411,7 +420,8 @@ name = "zauber-compiler"
 version = "0.1.0"
 dependencies = [
  "thiserror",
- "zauber-core",
+ "zauber-ast",
+ "zauber-ir",
  "zauber-parser",
 ]
 
@@ -420,16 +430,18 @@ name = "zauber-core"
 version = "0.1.0"
 
 [[package]]
+name = "zauber-ir"
+version = "0.1.0"
+
+[[package]]
 name = "zauber-parser"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.3.3",
  "escape_string",
  "indoc",
- "mime",
  "nom",
  "thiserror",
- "zauber-core",
+ "zauber-ast",
 ]
 
 [[package]]

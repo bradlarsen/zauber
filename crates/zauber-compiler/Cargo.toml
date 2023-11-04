@@ -9,5 +9,6 @@ version.workspace = true
 
 [dependencies]
 thiserror = { version = "1" }
-zauber-core = { path = "../zauber-core" }
+zauber-ast = { path = "../zauber-ast" }
+zauber-ir = { path = "../zauber-ir" }
 zauber-parser = { path = "../zauber-parser" }

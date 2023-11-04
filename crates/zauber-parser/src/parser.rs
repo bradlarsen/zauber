@@ -5,7 +5,6 @@
 
 #![allow(unused_imports)]  // for development
 
-use mime::Mime;
 use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, is_not, tag, take_till},
@@ -22,7 +21,9 @@ use nom::{
 use std::path::Path;
 use std::str::FromStr;
 
-use crate::{ast, err};
+use zauber_ast as ast;
+
+use crate::err;
 
 pub type IResult<'a, O> = nom::IResult<&'a str, O, nom::error::Error<&'a str>>;
 
@@ -273,7 +274,7 @@ fn directive(i: &str) -> IResult<ast::MagicPattern> {
 
 fn mime(i: &str) -> IResult<ast::Directive> {
     let (i, _) = directive_keyword("!:mime")(i)?;
-    let (i, m) = map_res(cut(rest), |m: &str| Mime::from_str(m))(i)?;
+    let (i, m) = map_res(cut(rest), |m: &str| ast::Mime::from_str(m))(i)?;
     Ok((i, ast::Directive::Mime(m)))
 }
 

@@ -1,4 +1,4 @@
-use zauber_parser::MagicPattern;
+use zauber_ast::MagicPattern;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

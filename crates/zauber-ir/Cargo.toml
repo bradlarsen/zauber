@@ -1,0 +1,13 @@
+[package]
+name = "zauber-ir"
+
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]

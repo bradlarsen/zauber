@@ -1,20 +1,19 @@
 [package]
-name = "zauber-parser"
-
-authors.workspace = true
-edition.workspace = true
+name = "zauber-ast"
 license.workspace = true
-publish.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
 version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
 
 description = "A crate for parsing libmagic `magic` files into abstract syntax"
 
 [dependencies]
-# bitflags = "2"
-escape_string = "0.1"
-nom = "7"
-thiserror = { version = "1" }
-zauber-ast = { path = "../zauber-ast" }
+bitflags = "2"
+mime = "0.3"
 
 [dev-dependencies]
 indoc = "2"
