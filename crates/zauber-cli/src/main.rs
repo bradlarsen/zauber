@@ -10,7 +10,7 @@ mod args;
 // - zauber-ast has AST definitions
 // - zauber-parser has libmagic parsing code
 // - zauber-ir has IR definitions
-// - zauber-core has fundamental utility code
+// - zauber-util has fundamental utility code
 // - zauber-compiler converts AST into IR and optimizes it
 // - zauber-runtime has the actual evaluator for IR
 // - zauber-cli is the command-line driver program
